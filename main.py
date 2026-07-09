@@ -16,10 +16,11 @@ def remove_file(path: str):
 def home():
     return {"status": "HQ Audio Transposer Server is Running!"}
 
-@app.get("/transpose")
+# 🛠️ 수정한 부분 1: @app.get을 @app.post로 변경하여 플러터의 POST 요청을 허용합니다!
+@app.post("/transpose")
 def transpose_audio(
     url: str,
-    pitch: int = 0,
+    semitones: int = 0,  # 🛠️ 수정한 부분 2: 플러터 앱과 똑같이 pitch 대신 semitones로 이름을 맞췄습니다.
     format: str = "MP3",
     sr: int = 44100,
     bit_depth: int = 24,
@@ -38,8 +39,9 @@ def transpose_audio(
     tmp_in = f"tmp_in_{task_id}"
     tmp_rb = f"tmp_rb_{task_id}.wav"
 
-    pitch_sign = f"+{pitch}" if pitch > 0 else str(pitch)
-    if pitch == 0: pitch_sign = "0"
+    # 🛠️ 수정한 부분 3: 내부에서 사용되던 pitch 변수들을 모두 semitones로 안전하게 변경했습니다.
+    pitch_sign = f"+{semitones}" if semitones > 0 else str(semitones)
+    if semitones == 0: pitch_sign = "0"
     final_filename = f"{clean_title} {pitch_sign}.{format.lower()}"
 
     try:
@@ -58,7 +60,8 @@ def transpose_audio(
 
         downloaded_wav = f"{tmp_in}.wav"
 
-        rb_cmd = f"rubberband --formant --pitch {pitch} {downloaded_wav} {tmp_rb}"
+        # 🛠️ 수정한 부분 4: Rubberband 명령어에 들어가는 변수도 semitones로 변경 완료!
+        rb_cmd = f"rubberband --formant --pitch {semitones} {downloaded_wav} {tmp_rb}"
         subprocess.run(rb_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         if format.upper() == 'WAV':
