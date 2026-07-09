@@ -26,22 +26,21 @@ def transpose_audio(
     bitrate: int = 320,
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
-    # 🛠️ [차단 우회 포인트 1] 유튜브가 로봇으로 의심하지 못하게 진짜 맥북 브라우저인 척 속이는 헤더 정보입니다.
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    # 🛠️ [치트키 포인트] 유튜브에게 아이폰(iOS) 앱인 척 속여서 로그인 창을 우회하는 핵심 옵션입니다!
+    ydl_opts_base = {
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios'],
+            }
+        }
     }
 
     try:
-        # 🛠️ [차단 우회 포인트 2] 링크 분석할 때 우회 헤더를 주입합니다.
-        ydl_info_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'http_headers': headers
-        }
-        with yt_dlp.YoutubeDL(ydl_info_opts) as ydl:
+        # 1. 링크 분석 단계
+        with yt_dlp.YoutubeDL(ydl_opts_base) as ydl:
             info = ydl.extract_info(url, download=False)
             video_title = info.get('title', 'audio')
         clean_title = re.sub(r'[\\/*?:"<>|]', "", video_title)
@@ -57,7 +56,9 @@ def transpose_audio(
     final_filename = f"{clean_title} {pitch_sign}.{format.lower()}"
 
     try:
-        ydl_opts = {
+        # 2. 실제 다운로드 옵션 세팅 (iOS 치트키 포함)
+        ydl_download_opts = {
+            **ydl_opts_base,
             'format': 'bestaudio/best',
             'outtmpl': tmp_in,
             'postprocessors': [{
@@ -65,12 +66,9 @@ def transpose_audio(
                 'preferredcodec': 'wav',
                 'preferredquality': '192',
             }],
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'http_headers': headers  # 🛠️ [차단 우회 포인트 3] 실제 파일 다운로드할 때도 헤더 주입!
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        
+        with yt_dlp.YoutubeDL(ydl_download_opts) as ydl:
             ydl.download([url])
 
         downloaded_wav = f"{tmp_in}.wav"
