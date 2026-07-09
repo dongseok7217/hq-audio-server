@@ -16,19 +16,32 @@ def remove_file(path: str):
 def home():
     return {"status": "HQ Audio Transposer Server is Running!"}
 
-# 🛠️ 수정한 부분 1: @app.get을 @app.post로 변경하여 플러터의 POST 요청을 허용합니다!
 @app.post("/transpose")
 def transpose_audio(
     url: str,
-    semitones: int = 0,  # 🛠️ 수정한 부분 2: 플러터 앱과 똑같이 pitch 대신 semitones로 이름을 맞췄습니다.
+    semitones: int = 0,
     format: str = "MP3",
     sr: int = 44100,
     bit_depth: int = 24,
     bitrate: int = 320,
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
+    # 🛠️ [차단 우회 포인트 1] 유튜브가 로봇으로 의심하지 못하게 진짜 맥북 브라우저인 척 속이는 헤더 정보입니다.
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    }
+
     try:
-        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+        # 🛠️ [차단 우회 포인트 2] 링크 분석할 때 우회 헤더를 주입합니다.
+        ydl_info_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'http_headers': headers
+        }
+        with yt_dlp.YoutubeDL(ydl_info_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             video_title = info.get('title', 'audio')
         clean_title = re.sub(r'[\\/*?:"<>|]', "", video_title)
@@ -39,7 +52,6 @@ def transpose_audio(
     tmp_in = f"tmp_in_{task_id}"
     tmp_rb = f"tmp_rb_{task_id}.wav"
 
-    # 🛠️ 수정한 부분 3: 내부에서 사용되던 pitch 변수들을 모두 semitones로 안전하게 변경했습니다.
     pitch_sign = f"+{semitones}" if semitones > 0 else str(semitones)
     if semitones == 0: pitch_sign = "0"
     final_filename = f"{clean_title} {pitch_sign}.{format.lower()}"
@@ -53,14 +65,16 @@ def transpose_audio(
                 'preferredcodec': 'wav',
                 'preferredquality': '192',
             }],
-            'quiet': True
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'http_headers': headers  # 🛠️ [차단 우회 포인트 3] 실제 파일 다운로드할 때도 헤더 주입!
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
         downloaded_wav = f"{tmp_in}.wav"
 
-        # 🛠️ 수정한 부분 4: Rubberband 명령어에 들어가는 변수도 semitones로 변경 완료!
         rb_cmd = f"rubberband --formant --pitch {semitones} {downloaded_wav} {tmp_rb}"
         subprocess.run(rb_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
