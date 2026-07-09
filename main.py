@@ -26,14 +26,15 @@ def transpose_audio(
     bitrate: int = 320,
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
-    # 🛠️ [치트키 포인트] 유튜브에게 아이폰(iOS) 앱인 척 속여서 로그인 창을 우회하는 핵심 옵션입니다!
+    # 🛠️ [우회력 극대화] 안드로이드 음악 앱과 iOS 앱 클라이언트를 동시에 주입하여 차단을 강제로 뚫어버립니다.
     ydl_opts_base = {
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios'],
+                'player_client': ['android_music', 'ios'],
+                'skip': ['webpage', 'hls']
             }
         }
     }
@@ -45,7 +46,9 @@ def transpose_audio(
             video_title = info.get('title', 'audio')
         clean_title = re.sub(r'[\\/*?:"<>|]', "", video_title)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"유튜브 링크 분석 실패: {e}")
+        # 로그에도 에러를 찍고, 앱에도 구체적인 에러 내용을 넘겨줍니다.
+        print(f"yt-dlp Extraction Error: {e}")
+        raise HTTPException(status_code=400, detail=f"유튜브 다운로드 차단됨 ({str(e)[:60]})")
 
     task_id = str(uuid.uuid4())
     tmp_in = f"tmp_in_{task_id}"
@@ -56,7 +59,7 @@ def transpose_audio(
     final_filename = f"{clean_title} {pitch_sign}.{format.lower()}"
 
     try:
-        # 2. 실제 다운로드 옵션 세팅 (iOS 치트키 포함)
+        # 2. 실제 다운로드 옵션 세팅
         ydl_download_opts = {
             **ydl_opts_base,
             'format': 'bestaudio/best',
